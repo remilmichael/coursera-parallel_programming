@@ -1,9 +1,8 @@
 package edu.coursera.parallel;
 
-import java.util.List;
-import java.util.ArrayList;
-import java.util.Map;
-import java.util.HashMap;
+import java.util.*;
+import java.util.function.Function;
+import java.util.stream.Collectors;
 import java.util.stream.Stream;
 
 /**
@@ -46,7 +45,13 @@ public final class StudentAnalytics {
      */
     public double averageAgeOfEnrolledStudentsParallelStream(
             final Student[] studentArray) {
-        throw new UnsupportedOperationException();
+        OptionalDouble averageOptional = Stream.of(studentArray)
+                .parallel()
+                .filter(Student::checkIsCurrent)
+                .mapToDouble(Student::getAge)
+                .average();
+
+        return averageOptional.orElse(0);
     }
 
     /**
@@ -71,7 +76,7 @@ public final class StudentAnalytics {
         for (Student s : inactiveStudents) {
             if (nameCounts.containsKey(s.getFirstName())) {
                 nameCounts.put(s.getFirstName(),
-                        new Integer(nameCounts.get(s.getFirstName()) + 1));
+                        nameCounts.get(s.getFirstName()) + 1);
             } else {
                 nameCounts.put(s.getFirstName(), 1);
             }
@@ -100,7 +105,28 @@ public final class StudentAnalytics {
      */
     public String mostCommonFirstNameOfInactiveStudentsParallelStream(
             final Student[] studentArray) {
-        throw new UnsupportedOperationException();
+
+//        Map<String, Integer> nameCounts = new HashMap<String, Integer>();
+//        Stream.of(studentArray)
+//                .parallel()
+//                .filter(student -> !student.checkIsCurrent())
+//                .forEach(student -> {
+//                    nameCounts.put(student.getFirstName(),
+//                            nameCounts.getOrDefault(student.getFirstName(), 0) + 1);
+//                });
+
+        Optional<Map.Entry<String, Long>> firstName = Stream.of(studentArray)
+                .parallel()
+                .filter(student -> !student.checkIsCurrent())
+                .map(Student::getFirstName)
+//                .collect(Collectors.groupingBy(name -> name, Collectors.counting()))
+                .collect(Collectors.groupingBy(Function.identity(), Collectors.counting()))
+                .entrySet().stream().parallel()
+                .max((e1, e2) -> e1.getValue() > e2.getValue() ? 1 : -1);
+
+
+        return firstName.map(Map.Entry::getKey).orElse(null);
+
     }
 
     /**
@@ -136,6 +162,13 @@ public final class StudentAnalytics {
      */
     public int countNumberOfFailedStudentsOlderThan20ParallelStream(
             final Student[] studentArray) {
-        throw new UnsupportedOperationException();
+        long count = Stream.of(studentArray)
+                .parallel()
+                .filter(student -> !student.checkIsCurrent())
+                .filter(student -> student.getAge() > 20)
+                .filter(student -> student.getGrade() < 65)
+                .count();
+
+        return Math.toIntExact(count);
     }
 }
