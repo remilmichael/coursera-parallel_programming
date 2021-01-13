@@ -53,7 +53,6 @@ public final class OneDimAveragingPhaser {
             final int tasks) {
         Phaser ph = new Phaser(0);
         ph.bulkRegister(tasks);
-
         Thread[] threads = new Thread[tasks];
 
         for (int ii = 0; ii < tasks; ii++) {
@@ -110,6 +109,48 @@ public final class OneDimAveragingPhaser {
     public static void runParallelFuzzyBarrier(final int iterations,
             final double[] myNew, final double[] myVal, final int n,
             final int tasks) {
+        Phaser phaser = new Phaser(tasks);
+        Thread[] threads = new Thread[tasks];
 
+        for (int t = 0; t < tasks; ++t) {
+
+            final int tt = t;
+
+            threads[t] = new Thread(() -> {
+                double[] myNewCp = myNew;
+                double[] myValCp = myVal;
+
+                for (int i = 0; i < iterations; ++i) {
+
+                    final int chunkSize = n / tasks;
+                    final int left = tt * chunkSize + 1;
+                    int right = (left + chunkSize) - 1;
+                    if (right > n) right = n;
+
+                    myNewCp[left] = (myValCp[left - 1] + myValCp[left + 1]) / 2.0;
+                    myNewCp[right] = (myValCp[right - 1] + myValCp[right + 1]) / 2.0;
+                    int currentPhase = phaser.arrive();
+
+                    for (int j = left + 1; j < right; ++j) {
+                        myNewCp[j] = (myValCp[j - 1] + myValCp[j + 1]) / 2.0;
+                    }
+                    phaser.awaitAdvance(currentPhase);
+
+                    double[] temp = myNewCp;
+                    myNewCp = myValCp;
+                    myValCp = temp;
+                }
+
+            });
+            threads[t].start();
+        }
+
+        for (int ii = 0; ii < tasks; ii++) {
+            try {
+                threads[ii].join();
+            } catch (InterruptedException e) {
+                e.printStackTrace();
+            }
+        }
     }
 }
